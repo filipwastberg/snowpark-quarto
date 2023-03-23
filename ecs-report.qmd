@@ -1,0 +1,84 @@
+---
+title: "My Eurovision Report"
+format: html
+jupyter: pysnowpark
+---
+
+```{python}
+#| echo: false
+from snowflake.snowpark.session import Session
+from keyring import get_password
+import pandas as pd
+
+service_id = 'snowflake-trial'
+
+connection_parameters = {
+    "account": get_password(service_id, 'accountname'),
+    "user": get_password(service_id, 'username'),
+    "password": get_password(service_id, 'password'),
+    "role": "ACCOUNTADMIN",
+    "database": "HOL_DB",
+    "schema": "PUBLIC",
+    "warehouse": "HOL_WH"
+}
+
+session = Session.builder.configs(connection_parameters).create()
+contestant_sdf = session.table('contestants')
+
+n_contestants = contestant_sdf.count()
+```
+
+For this seasons Eurovision Song Contest we want to have a look at the historical data.
+
+How many countries have participated in each Eurovision Song Contest?
+
+```{python}
+#| echo: false
+import plotly.express as px
+contestants_year = (contestant_sdf
+                .group_by('YEAR')
+                .count()
+                .to_pandas()
+                )
+
+fig = px.scatter(
+    contestants_year,
+    x="YEAR",
+    y="COUNT",
+    title='Number of contestants in the ESC',
+    labels = {
+        "COUNT": "Number of contestants",
+        "YEAR": "Year"
+        })
+fig.show()
+```
+
+Which countries have won most times?
+
+```{python}
+#| echo: false
+winners = (contestant_sdf
+                .filter("place_final = 1")
+                .group_by('to_country')
+                .count()
+                .to_pandas()
+                .sort_values(by = 'COUNT', ascending = False)
+                .head(17)
+)
+
+import plotly.express as px
+
+fig = px.bar(winners, x = 'COUNT', y = 'TO_COUNTRY',
+                labels = {
+                     "COUNT": "Number of 1st place",
+                     "TO_COUNTRY": "Country"
+                 },
+                title = "Number of Eurovision Song Contest wins since 1956")
+fig.update_yaxes(autorange="reversed")
+
+fig.show()
+```
+
+## Summary
+
+We can see that the number of contestants in the Eurovision Song Contest have increased over time and that the country that have won most times is Ireland. Who will win this year?
